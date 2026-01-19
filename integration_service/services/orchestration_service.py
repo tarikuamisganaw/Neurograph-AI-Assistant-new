@@ -232,7 +232,9 @@ class OrchestrationService:
             
             local_paths = self._copy_to_local_output(job_id)
             
-            download_url = f"http://localhost:9000/api/download-result?job_id={job_id}"
+            port = os.getenv("API_PORT", "9000")
+            download_url = f"http://localhost:{port}/api/download-result?job_id={job_id}"
+
             
             return {
                 "job_id": job_id,
