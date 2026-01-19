@@ -202,7 +202,7 @@ services:
 
   # --- Neural Subgraph Matcher Miner ---
   neural-miner:
-    image:  tarikua123/port-neural
+    image: tarikua123/neural-finalized
     container_name: neurograph-ai-assistant-neural-miner
     volumes:
       - ./custom-atomspace-builder/output:/shared/output
