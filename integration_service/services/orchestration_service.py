@@ -85,14 +85,15 @@ class OrchestrationService:
                             config,
                             schema_json,
                             graph_type,
-                            tenant_id
+                            tenant_id,
+                            cleanup_dir=cleanup_dir
                         )
                     )
                     
                     # Now that we have the nx_job_id, we can start the merge task
                     # and clean up when both are done.
                     print("DEBUG: Creating merge task")
-                    asyncio.create_task(self._merge_mork_results(nx_job_id, mork_task, cleanup_dir))
+                    asyncio.create_task(self._merge_mork_results(nx_job_id, mork_task))
                     
                 networkx_file = f"/shared/output/{nx_job_id}/networkx_graph.pkl"
                     
@@ -119,15 +120,12 @@ class OrchestrationService:
         config: str,
         schema_json: str,
         graph_type: str,
-        tenant_id: str
+        tenant_id: str,
+        cleanup_dir: str = None
     ) -> Optional[str]:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                files = []
-                for csv_file_path in csv_files:
-                    csv_file = open(csv_file_path, 'rb')
-                    files.append(('files', (os.path.basename(csv_file_path), csv_file, 'text/csv')))
-                
+                files = [('files', (os.path.basename(f), open(f, 'rb'), 'text/csv')) for f in csv_files]
                 data = {
                     'config': config,
                     'schema_json': schema_json,
@@ -142,9 +140,10 @@ class OrchestrationService:
                     data=data
                 )
                 
-                for _, (_, file_obj, _) in files:
-                    file_obj.close()
-                    
+                # Close all files
+                for _, (_, f_obj, _) in files:
+                    f_obj.close()
+                
                 if response.status_code == 200:
                     result = response.json()
                     mork_job_id = result.get('job_id')
@@ -153,12 +152,21 @@ class OrchestrationService:
                 else:
                     print(f"Background Mork generation failed: {response.text}")
                     return None
-                    
+                
         except Exception as e:
             print(f"Background Mork generation error: {str(e)}")
             return None
+        finally:
+            # Cleanup the directory after mork generation is done (success or failure)
+            if cleanup_dir and os.path.exists(cleanup_dir):
+                import shutil
+                try:
+                    shutil.rmtree(cleanup_dir)
+                    print(f"DEBUG: Cleaned up temporary directory: {cleanup_dir}")
+                except Exception as cleanup_error:
+                    print(f"DEBUG: Failed to cleanup directory {cleanup_dir}: {cleanup_error}")
 
-    async def _merge_mork_results(self, nx_job_id: str, mork_task: asyncio.Task, cleanup_dir: str = None):
+    async def _merge_mork_results(self, nx_job_id: str, mork_task: asyncio.Task):
         """Wait for Mork generation and merge results into NetworkX job folder."""
         try:
             mork_job_id = await mork_task
@@ -198,9 +206,8 @@ class OrchestrationService:
         except Exception as e:
             print(f"Error merging Mork results: {str(e)}")
         finally:
-            if cleanup_dir and os.path.exists(cleanup_dir):
-                shutil.rmtree(cleanup_dir)
-                print(f"Cleaned up temporary directory: {cleanup_dir}")
+            # The cleanup_dir is now handled by _generate_auxiliary_mork's finally block
+            pass
 
     async def mine_patterns(
         self,
@@ -232,8 +239,9 @@ class OrchestrationService:
             
             local_paths = self._copy_to_local_output(job_id)
             
-            port = os.getenv("API_PORT", "9000")
-            download_url = f"http://localhost:{port}/api/download-result?job_id={job_id}"
+            # Use the external integration URL if available, otherwise fallback to localhost with the correct port
+            base_url = os.environ.get("INTEGRATION_URL", "http://localhost:59000")
+            download_url = f"{base_url}/api/download-result?job_id={job_id}"
 
             
             return {

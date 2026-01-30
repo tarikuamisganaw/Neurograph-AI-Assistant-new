@@ -9,17 +9,17 @@ class Settings:
       
     def __init__(self):  
         # Service URLs  
-        self.atomspace_url = os.getenv('ATOMSPACE_API_URL', 'http://atomspace-api:8000') 
-        self.miner_url = os.getenv('NEURAL_MINER_URL', 'http://neural-miner:9002')  
+        self.atomspace_url = os.environ['ATOMSPACE_API_URL']
+        self.miner_url = os.environ['NEURAL_MINER_URL']
           
         # Timeouts 
-        self.atomspace_timeout = int(os.getenv('ATOMSPACE_TIMEOUT', '600'))  
-        self.miner_timeout = int(os.getenv('MINER_TIMEOUT', '1800'))  
+        self.atomspace_timeout = int(os.environ['ATOMSPACE_TIMEOUT'])  
+        self.miner_timeout = int(os.environ['MINER_TIMEOUT'])  
           
         # CSV caching  
-        self.csv_cache_dir = os.getenv('CSV_CACHE_DIR', './cache')  
+        self.csv_cache_dir = os.environ['CSV_CACHE_DIR']
           
         # Shared volume  
-        self.shared_volume_path = os.getenv('SHARED_VOLUME_PATH', '/shared/output')  
+        self.shared_volume_path = os.environ['SHARED_VOLUME_PATH']
   
 settings = Settings()

@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
   
 COPY . ./app/  
   
-EXPOSE 9000  
+ARG API_PORT
+EXPOSE $API_PORT  
   
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $API_PORT"]

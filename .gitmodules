@@ -1,24 +1,24 @@
 [submodule "submodules/neural-subgraph-matcher-miner"]
 	path = submodules/neural-subgraph-matcher-miner
-	url = https://github.com/rejuve-bio/neural-subgraph-matcher-miner.git
-	branch = main
+	url = https://github.com/tarikuamisganaw/neural-subgraph-matcher-miner.git
+	branch = changed-to-new-ports
 
 [submodule "submodules/custom-atomspace-builder"]
 	path = submodules/custom-atomspace-builder
-	url = https://github.com/kedistS/custom-atomspace-builder.git
-	branch = master
+	url = https://github.com/tarikuamisganaw/custom-atomspace-builder.git
+	branch = changed-to-new-ports
 
 [submodule "submodules/annotation-tool"]
 	path = submodules/annotation-tool
-	url = https://github.com/kedistS/annotation-tool.git
-	branch = main
+	url = https://github.com/tarikuamisganaw/annotation-tool.git
+	branch = changed-to-new-port
 
 [submodule "submodules/annotation-query-backend-general"]
 	path = submodules/annotation-query-backend-general
-	url = https://github.com/kedistS/annotation-query-backend-general.git
-	branch = main
+	url = https://github.com/tarikuamisganaw/annotation-query-backend.git
+	branch = changed-to-new-ports
 
 [submodule "submodules/MORK"]
 	path = submodules/MORK
-	url = https://github.com/DeazStar/MORK.git
-	branch = server
+	url = https://github.com/tarikuamisganaw/MORK.git
+	branch = changed-to-new-ports

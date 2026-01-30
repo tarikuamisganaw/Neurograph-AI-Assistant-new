@@ -3,17 +3,22 @@ version: '3.8'
 services:
   # --- Atomspace API ---
   atomspace-api:
+    build:
+      context: ./submodules/custom-atomspace-builder
+      args:
+        - API_PORT=${ATOMSPACE_API_PORT:-58000}
     image: kedist/atomspace-api:latest
     container_name: atomspace-api
     ports:
-      - "${ATOMSPACE_API_PORT:-8000}:8000"
+      - "${ATOMSPACE_API_PORT:-58000}:58000"
     environment:
       - NEO4J_HOST=neo4j
-      - NEO4J_PORT=${NEO4J_BOLT_PORT:-7687}
-      - NEO4J_BOLT_PORT=${NEO4J_BOLT_PORT:-7687}
-      - HUGEGRAPH_PORT=${HUGEGRAPH_PORT_EXTERNAL:-8080}
-      - ANNOTATION_SERVICE_URL=http://annotation_service:${ANNOTATION_SERVICE_PORT:-8001}/annotation/load
-      - API_PORT=8000
+      - NEO4J_PORT=7687
+      - NEO4J_BOLT_PORT=7687
+      - HUGEGRAPH_PORT=58080
+      - ANNOTATION_SERVICE_URL=http://annotation_service:${ANNOTATION_SERVICE_PORT:-58001}/annotation/load
+      - API_PORT=58000
+      - MORK_URL=http://mork:8231
       - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
       - LLM_API_KEY=${LLM_API_KEY}
       - NEO4J_USERNAME=${NEO4J_USERNAME:-neo4j}
@@ -30,7 +35,7 @@ services:
       neo4j:
         condition: service_healthy
       hugegraph:
-        condition: service_started
+        condition: service_healthy
     networks:
       - atomspace-network
     restart: always
@@ -40,8 +45,8 @@ services:
     image: neo4j:5.15.0
     container_name: neo4j-atomspace
     ports:
-      - "${NEO4J_HTTP_PORT:-7474}:7474"
-      - "${NEO4J_BOLT_PORT:-7687}:7687"
+      - "${NEO4J_HTTP_PORT:-57474}:7474"
+      - "${NEO4J_BOLT_PORT:-57687}:7687"
     environment:
       - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-atomspace123}
       - NEO4J_PLUGINS=["apoc"]
@@ -76,36 +81,54 @@ services:
     image: hugegraph/hugegraph:1.5.0
     container_name: hugegraph-atomspace
     ports:
-      - "${HUGEGRAPH_PORT_EXTERNAL:-8080}:8080"
-      - "${HUGEGRAPH_GREMLIN_PORT:-8182}:8182"
+      - "${HUGEGRAPH_PORT_EXTERNAL:-58080}:58080"
+      - "${HUGEGRAPH_GREMLIN_PORT_EXTERNAL:-58182}:58182"
     environment:
-      - HUGEGRAPH_CONF=/hugegraph/conf
+      - HUGEGRAPH_CONF=/hugegraph-server/conf
+    command: >
+      bash -c "
+      sed -i 's|restserver\.url=.*|restserver.url=http://0.0.0.0:58080|' /hugegraph-server/conf/rest-server.properties &&
+      sed -i 's|8182|58182|g' /hugegraph-server/conf/rest-server.properties /hugegraph-server/conf/gremlin-server.yaml &&
+      sed -i 's|host: localhost|host: 0.0.0.0|' /hugegraph-server/conf/gremlin-server.yaml &&
+      /hugegraph-server/bin/init-store.sh &&
+      /hugegraph-server/bin/start-hugegraph.sh &&
+      tail -f /hugegraph-server/logs/*.log"
     volumes:
       - hugegraph_data:/hugegraph/data
       - hugegraph_logs:/hugegraph/logs
     networks:
       - atomspace-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:58080/graphs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   # --- Annotation Service (Backend) ---
   annotation_service:
+    build:
+      context: ./submodules/annotation-query-backend-general
+      args:
+        - APP_PORT=${ANNOTATION_SERVICE_PORT:-58001}
     image: tarikua123/port-annotation-backend
     container_name: annotation-service
     ports:
-      - "${ANNOTATION_SERVICE_PORT:-8001}:8001"
+      - "${ANNOTATION_SERVICE_PORT:-58001}:58001"
     command: python run.py
     restart: always
     depends_on:
       - mongodb
       - redis
     environment:
-      - MONGO_URI=mongodb://mongodb:${MONGO_PORT:-27017}/annotation
-      - APP_PORT=8001
+      - MONGO_URI=mongodb://mongodb:27017/annotation
+      - APP_PORT=58001
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_URL=redis://redis:6379/0
       - REDIS_EXPIRATION=3600
-      - MORK_URL=http://mork:${MORK_PORT:-8231}
+      - MORK_URL=http://mork:8231
       - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
       - NEO4J_USERNAME=${NEO4J_USERNAME:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-atomspace123}
@@ -123,7 +146,7 @@ services:
     image: mongo:latest
     container_name: mongodb
     ports:
-      - "${MONGO_PORT:-27017}:27017"
+      - "${MONGO_PORT:-57017}:27017"
     volumes:
       - mongo_data:/data/db
     restart: always
@@ -144,15 +167,17 @@ services:
 
   # --- Annotation Tool (Frontend) ---
   annotation-tool:
+    build:
+      context: ./submodules/annotation-tool
     image: kedist/annotation-tool:latest
     container_name: annotation-tool
     ports:
-      - "${ANNOTATION_TOOL_PORT:-3000}:${ANNOTATION_TOOL_PORT:-3000}"
+      - "${ANNOTATION_TOOL_PORT:-53000}:${ANNOTATION_TOOL_PORT:-53000}"
     environment:
-      - PORT=${ANNOTATION_TOOL_PORT:-3000}
-      - LOADER_URL=http://127.0.0.1:${ATOMSPACE_API_PORT:-8000}
-      - ANNOTATION_URL=http://127.0.0.1:${ANNOTATION_SERVICE_PORT:-8001}
-      - INTEGRATION_URL=http://127.0.0.1:${INTEGRATION_API_PORT:-9000}
+      - PORT=${ANNOTATION_TOOL_PORT:-53000}
+      - LOADER_URL=http://127.0.0.1:${ATOMSPACE_API_PORT:-58000}
+      - ANNOTATION_URL=http://127.0.0.1:${ANNOTATION_SERVICE_PORT:-58001}
+      - INTEGRATION_URL=http://127.0.0.1:${INTEGRATION_API_PORT:-59000}
     depends_on:
       - atomspace-api
       - annotation_service
@@ -164,9 +189,9 @@ services:
     image: deazstar/custom-query-builder:mork-pathmap
     container_name: mork_pathmap
     ports:
-      - "${MORK_PORT:-8231}:8231"
+      - "${MORK_PORT:-58231}:8231"
     environment:
-      - PORT=${MORK_PORT:-8231}
+      - PORT=8231
     volumes:
       - ./custom-atomspace-builder/output:/shared/output # shared volume
     networks:
@@ -175,15 +200,19 @@ services:
 
   # --- Integration Service ---
   integration-service:
+    build:
+      context: ./integration_service
+      args:
+        - API_PORT=${INTEGRATION_API_PORT:-59000}
     image: tarikua123/port-integration
     container_name: neurograph-ai-assistant-integration-service
     ports:
-      - "${INTEGRATION_API_PORT:-9000}:9000"
+      - "${INTEGRATION_API_PORT:-59000}:59000"
     environment:
-      - API_PORT=${INTEGRATION_API_PORT:-9000}
-      - ATOMSPACE_API_URL=http://atomspace-api:8000
-      - NEURAL_MINER_URL=http://neural-miner:9002
-      - ANNOTATION_SERVICE_URL=http://annotation_service:8001
+      - API_PORT=${INTEGRATION_API_PORT:-59000}
+      - ATOMSPACE_API_URL=http://atomspace-api:58000
+      - NEURAL_MINER_URL=http://neural-miner:59002
+      - ANNOTATION_SERVICE_URL=http://annotation_service:58001
       - ATOMSPACE_TIMEOUT=${ATOMSPACE_TIMEOUT:-600}
       - MINER_TIMEOUT=${MINER_TIMEOUT:-1800}
       - ANNOTATION_TIMEOUT=${ANNOTATION_TIMEOUT:-300}
@@ -202,6 +231,8 @@ services:
 
   # --- Neural Subgraph Matcher Miner ---
   neural-miner:
+    build:
+      context: ./submodules/neural-subgraph-matcher-miner
     image: tarikua123/neural-finalized
     container_name: neurograph-ai-assistant-neural-miner
     volumes:
@@ -209,12 +240,14 @@ services:
       - ./submodules/neural-subgraph-matcher-miner/results:/app/results
       - ./submodules/neural-subgraph-matcher-miner/plots:/app/plots
     ports:
-      - "${NEURAL_MINER_PORT:-9002}:9002"
+      - "${NEURAL_MINER_PORT:-59002}:59002"
     networks:
       - atomspace-network
     environment:
-      - PORT=${NEURAL_MINER_PORT:-9002}
+      - PORT=${NEURAL_MINER_PORT:-59002}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEURAL_MINER_PORT=${NEURAL_MINER_PORT:-59002}
+      - ANNOTATION_TOOL_PORT=${ANNOTATION_TOOL_PORT:-53000}
     command: python3 -m app.main
     restart: always
 
