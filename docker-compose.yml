@@ -3,10 +3,6 @@ version: '3.8'
 services:
   # --- Atomspace API ---
   atomspace-api:
-    build:
-      context: ./submodules/custom-atomspace-builder
-      args:
-        - API_PORT=${ATOMSPACE_API_PORT:-58000}
     image: tarikua123/custom-atom-space-builder-new-repo:latest
     container_name: atomspace-api
     ports:
@@ -108,10 +104,6 @@ services:
 
   # --- Annotation Service (Backend) ---
   annotation_service:
-    build:
-      context: ./submodules/annotation-query-backend-general
-      args:
-        - APP_PORT=${ANNOTATION_SERVICE_PORT:-58001}
     image: tarikua123/annotation-query-backend-new-port
     container_name: annotation-service
     ports:
@@ -167,8 +159,6 @@ services:
 
   # --- Annotation Tool (Frontend) ---
   annotation-tool:
-    build:
-      context: ./submodules/annotation-tool
     image: tarikua123/annotation-tool-new-repo:latest
     container_name: annotation-tool
     ports:
@@ -200,10 +190,6 @@ services:
 
   # --- Integration Service ---
   integration-service:
-    build:
-      context: ./integration_service
-      args:
-        - API_PORT=${INTEGRATION_API_PORT:-59000}
     image: tarikua123/integration-service-new-port
     container_name: neurograph-ai-assistant-integration-service
     ports:
@@ -231,14 +217,12 @@ services:
 
   # --- Neural Subgraph Matcher Miner ---
   neural-miner:
-    build:
-      context: ./submodules/neural-subgraph-matcher-miner
     image: tarikua123/neural-miner-new-repo
     container_name: neurograph-ai-assistant-neural-miner
     volumes:
       - ./custom-atomspace-builder/output:/shared/output
-      - ./submodules/neural-subgraph-matcher-miner/results:/app/results
-      - ./submodules/neural-subgraph-matcher-miner/plots:/app/plots
+      - ./miner_results:/app/results
+      - ./miner_plots:/app/plots
     ports:
       - "${NEURAL_MINER_PORT:-59002}:59002"
     networks:
